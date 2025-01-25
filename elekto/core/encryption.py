@@ -18,7 +18,7 @@
 from nacl import secret, pwhash, exceptions
 
 
-def get_secret_box(salt, passcode):
+def get_secret_box(salt: bytes, passcode: bytes):
     kdf = pwhash.argon2i.kdf
     key = kdf(secret.SecretBox.KEY_SIZE, passcode, salt)
     box = secret.SecretBox(key)
@@ -26,16 +26,16 @@ def get_secret_box(salt, passcode):
     return box
 
 
-def encrypt(salt, passcode, target):
-    passcode = passcode.encode("utf-8")
-    target = target.encode("utf-8")
-    box = get_secret_box(salt, passcode)
-    encrypted = box.encrypt(target)
+def encrypt(salt: bytes, passcode: str, target: str):
+    byte_passcode = passcode.encode("utf-8")
+    byte_target = target.encode("utf-8")
+    box = get_secret_box(salt, byte_passcode)
+    encrypted = box.encrypt(byte_target)
 
     return encrypted
 
 
-def decrypt(salt, passcode, encrypted):
+def decrypt(salt: bytes, passcode: str, encrypted: bytes):
     passcode = passcode.encode("utf-8")
     box = get_secret_box(salt, passcode)
     try:
