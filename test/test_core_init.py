@@ -1,4 +1,4 @@
-# Copyright 2024 The Elekto Authors
+# Copyright 2025 The Elekto Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,10 +13,6 @@
 # limitations under the License.
 #
 # Author(s):         Carson Weeks <mail@carsonweeks.com>
-
-import os
-import sys
-import pytest
 
 from elekto.core import schulze_d, schulze_p, schulze_rank  # noqa
 
