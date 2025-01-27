@@ -18,11 +18,17 @@ import flask as F
 from flask_wtf.csrf import CSRFProtect
 
 from elekto.models import sql
+from sqlalchemy.orm import scoped_session
+
 
 APP = F.Flask(__name__)
 APP.config.from_object('config')
 csrf = CSRFProtect(APP)
-SESSION = sql.create_session(APP.config.get('DATABASE_URL'))  # database
+
+def get_db_session() -> scoped_session:
+    if 'db_session' not in F.g:
+        F.g.db_session = sql.create_session(APP.config.get('DATABASE_URL')) 
+    return F.g.db_session
 
 from elekto.models import meta  # noqa - imports SESSION from here
 from elekto import utils  # noqa - imports SESSION from here
@@ -45,9 +51,9 @@ def before_request():
 
 @APP.teardown_appcontext
 def destroy_session(exception=None):
-    # Remove the database session
-    SESSION.remove()
-
+    db = F.g.pop('db_session', None)
+    if db is not None:
+        db.remove()
 
 ####
 # Controllers

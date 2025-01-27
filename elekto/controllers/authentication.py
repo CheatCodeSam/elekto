@@ -20,7 +20,7 @@ import base64
 from datetime import datetime, timedelta
 from authlib.integrations.requests_client import OAuth2Session
 
-from elekto import constants, APP, SESSION
+from elekto import constants, APP, get_db_session
 from elekto.models.sql import User
 from elekto.middlewares.auth import authenticated, csrf_guard, auth_guard
 
@@ -55,10 +55,11 @@ def render_login_page():
 @APP.route('/logout', methods=['GET', 'POST'])
 @auth_guard
 def logout():
+    db_session = get_db_session()
     # Remove the authentication token from user
     F.g.user.token = None
     F.g.user.token_expires_at = None
-    SESSION.commit()
+    db_session.commit()
 
     # Remove the authentication token from current session
     F.session.pop(constants.AUTH_STATE)
@@ -94,6 +95,7 @@ def oauth_github_login():
 @csrf_guard
 def oauth_github_redirect():
     client = oauth_session(github)
+    db_session = get_db_session()
     token = client.fetch_token(constants.GITHUB_ACCESS,
                                authorization_response=F.request.url)
     oauthsession = OAuth2Session(client_id=github['client_id'],
@@ -107,16 +109,16 @@ def oauth_github_redirect():
     else:
         data = resp.json()
         expries = datetime.now() + timedelta(days=1)
-        query = SESSION.query(User).filter_by(username=data['login']).first()
+        query = db_session.query(User).filter_by(username=data['login']).first()
         if query:
             query.token = token['access_token']
             query.token_expires_at = expries
         else:
-            SESSION.add(User(username=data['login'],
+            db_session.add(User(username=data['login'],
                              name=data['name'],
                              token=token['access_token'],
                              token_expires_at=expries))
-        SESSION.commit()
+        db_session.commit()
         # Add user's authentication token to the flask session
         F.session[constants.AUTH_STATE] = token['access_token']
         F.g.auth = True

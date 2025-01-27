@@ -25,7 +25,7 @@ import flask as F
 
 from nacl import utils, pwhash
 
-from elekto import constants, APP, SESSION
+from elekto import constants, APP, get_db_session
 from elekto.models import meta
 from elekto.core.election import Election as CoreElection
 from elekto.models.sql import Election, Ballot, Voter, Request
@@ -58,10 +58,11 @@ def elections():
 @auth_guard
 def elections_single(eid):
     try:
+        db_session = get_db_session()
         election = meta.Election(eid)
         candidates = election.candidates()
         voters = election.voters()
-        e = SESSION.query(Election).filter_by(key=eid).first()
+        e = db_session.query(Election).filter_by(key=eid).first()
 
         return F.render_template(
             "views/elections/single.html",
@@ -94,10 +95,11 @@ def elections_candidate(eid, cid):
 @voter_guard
 @len_guard
 def elections_voting_page(eid):
+    db_session = get_db_session()
     election = meta.Election(eid)
     candidates = election.candidates()
     voters = election.voters()
-    e = SESSION.query(Election).filter_by(key=eid).first()
+    e = db_session.query(Election).filter_by(key=eid).first()
 
     # Redirect to thankyou page if already voted
     if F.g.user.id in [v.user_id for v in e.voters]:
@@ -129,7 +131,7 @@ def elections_voting_page(eid):
 
         # Add user to the voted list
         e.voters.append(voter)
-        SESSION.commit()
+        db_session.commit()
         return F.redirect(F.url_for("elections_confirmation_page", eid=eid))
 
     return F.render_template(
@@ -146,17 +148,18 @@ def elections_voting_page(eid):
 @voter_guard
 @has_voted_condition
 def elections_view(eid):
+    db_session = get_db_session()
     election = meta.Election(eid)
     voters = election.voters()
-    e = SESSION.query(Election).filter_by(key=eid).first()
-    voter = SESSION.query(Voter).filter_by(user_id=F.g.user.id,election_id=e.id).first()
+    e = db_session.query(Election).filter_by(key=eid).first()
+    voter = db_session.query(Voter).filter_by(user_id=F.g.user.id,election_id=e.id).first()
 
     passcode = F.request.form["password"]
 
     try:
         # decrypt ballot_id if passcode is correct
         ballot_voter = decrypt(voter.salt, passcode, voter.ballot_id)
-        ballots = SESSION.query(Ballot).filter_by(voter=ballot_voter)
+        ballots = db_session.query(Ballot).filter_by(voter=ballot_voter)
         return F.render_template("views/elections/view_ballots.html", election=election.get(), voters=voters, voted=[v.user_id for v in e.voters], ballots=ballots)
 
     # if passcode is wrong
@@ -173,21 +176,22 @@ def elections_view(eid):
 @voter_guard
 @has_voted_condition
 def elections_edit(eid):
+    db_session = get_db_session()
     election = meta.Election(eid)
-    e = SESSION.query(Election).filter_by(key=eid).first()
-    voter = SESSION.query(Voter).filter_by(user_id=F.g.user.id,election_id=e.id).first()
+    e = db_session.query(Election).filter_by(key=eid).first()
+    voter = db_session.query(Voter).filter_by(user_id=F.g.user.id,election_id=e.id).first()
 
     passcode = F.request.form["password"]
 
     try:
         # decrypt ballot_id if passcode is correct
         ballot_voter = decrypt(voter.salt, passcode, voter.ballot_id)
-        ballots = SESSION.query(Ballot).filter_by(voter=ballot_voter)
+        ballots = db_session.query(Ballot).filter_by(voter=ballot_voter)
         for b in ballots:
-            SESSION.delete(b)
+            db_session.delete(b)
 
-        SESSION.delete(voter)
-        SESSION.commit()
+        db_session.delete(voter)
+        db_session.commit()
         F.flash("The old ballot is sucessfully deleted, please re-cast the ballot.")
         return F.redirect(F.url_for("elections_single", eid=eid))
 
@@ -203,8 +207,9 @@ def elections_edit(eid):
 @APP.route("/app/elections/<eid>/confirmation", methods=["GET"])
 @auth_guard
 def elections_confirmation_page(eid):
+    db_session = get_db_session()
     election = meta.Election(eid)
-    e = SESSION.query(Election).filter_by(key=eid).first()
+    e = db_session.query(Election).filter_by(key=eid).first()
 
     if F.g.user.id in [v.user_id for v in e.voters]:
         return F.render_template(
@@ -228,10 +233,11 @@ def elections_results(eid):
 @auth_guard
 @exception_guard
 def elections_exception(eid):
+    db_session = get_db_session()
     election = meta.Election(eid)
-    e = SESSION.query(Election).filter_by(key=eid).first()
+    e = db_session.query(Election).filter_by(key=eid).first()
     req = (
-        SESSION.query(Request)
+        db_session.query(Request)
         .join(Request, Election.requests)
         .filter(Request.user_id == F.g.user.id, Election.key == eid)
         .first()
@@ -255,7 +261,7 @@ def elections_exception(eid):
             comments=F.request.form["comments"],
         )
         e.requests.append(erequest)
-        SESSION.commit()
+        db_session.commit()
 
         F.flash("Request sucessfully submitted.")
         return F.redirect(F.url_for("elections_single", eid=eid))
@@ -274,8 +280,9 @@ def elections_exception(eid):
 @auth_guard
 @admin_guard
 def elections_admin(eid):
+    db_session = get_db_session()
     election = meta.Election(eid)
-    e = SESSION.query(Election).filter_by(key=eid).first()
+    e = db_session.query(Election).filter_by(key=eid).first()
 
     return F.render_template("views/elections/admin.html", election=election.get(), e=e)
 
@@ -284,10 +291,11 @@ def elections_admin(eid):
 @auth_guard  # Admin page for the reviewing exception
 @admin_guard
 def elections_admin_review(eid, rid):
+    db_session = get_db_session()
     election = meta.Election(eid)
-    e = SESSION.query(Election).filter_by(key=eid).first()
+    e = db_session.query(Election).filter_by(key=eid).first()
     req = (
-        SESSION.query(Request)
+        db_session.query(Request)
         .join(Request, Election.requests)
         .filter(Request.id == rid)
         .first()
@@ -295,7 +303,7 @@ def elections_admin_review(eid, rid):
 
     if F.request.method == "POST":
         req.reviewed = False if req.reviewed else True
-        SESSION.commit()
+        db_session.commit()
 
     return F.render_template(
         "views/elections/admin_exception.html", election=election.get(), req=req, e=e
@@ -307,9 +315,10 @@ def elections_admin_review(eid, rid):
 @admin_guard
 @has_completed_condition
 def elections_admin_results(eid):
+    db_session = get_db_session()
     election = meta.Election(eid)
     candidates = election.candidates()
-    e = SESSION.query(Election).filter_by(key=eid).first()
+    e = db_session.query(Election).filter_by(key=eid).first()
 
     result = CoreElection.build(candidates, e.ballots).schulze()
 
@@ -323,9 +332,10 @@ def elections_admin_results(eid):
 @admin_guard
 @has_completed_condition
 def elections_admin_download(eid):
+    db_session = get_db_session()
     election = meta.Election(eid)
     candidates = election.candidates()
-    e = SESSION.query(Election).filter_by(key=eid).first()
+    e = db_session.query(Election).filter_by(key=eid).first()
 
     # Generate a csv
     ballots = CoreElection.build(candidates, e.ballots).ballots

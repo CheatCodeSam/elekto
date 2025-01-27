@@ -17,7 +17,7 @@
 import flask as F
 
 from functools import wraps
-from elekto import SESSION, constants
+from elekto import get_db_session, constants
 from elekto.models.sql import Election
 from elekto.models import meta
 from datetime import datetime
@@ -111,7 +111,8 @@ def has_voted_condition(f):
     def decorated_function(*args, **kwargs):
         if 'eid' not in kwargs.keys():
             return F.abort(404)
-        e = SESSION.query(Election).filter_by(key=kwargs['eid']).first()
+        session = get_db_session()
+        e = session.query(Election).filter_by(key=kwargs['eid']).first()
 
         if F.g.user.id not in [v.user_id for v in e.voters]:
             F.flash('You have not voted yet')

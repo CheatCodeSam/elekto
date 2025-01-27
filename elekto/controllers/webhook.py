@@ -16,7 +16,7 @@
 
 import os
 
-from elekto import APP, SESSION, csrf
+from elekto import APP, get_db_session, csrf
 from elekto.models import meta
 from elekto.models.utils import sync
 from elekto.middlewares.webhook import webhook_guard
@@ -26,9 +26,10 @@ from elekto.middlewares.webhook import webhook_guard
 @webhook_guard
 @csrf.exempt
 def webhook_sync():
+    db_session = get_db_session()
     backend = meta.Meta(APP.config['META'])
     if not os.path.exists(backend.META) or not os.path.isdir(backend.META):
         backend.clone()
     else:
         backend.pull()
-    return sync(SESSION, meta.Election.all())
+    return sync(db_session, meta.Election.all())

@@ -21,7 +21,7 @@ not require authentication.
 
 import flask as F
 
-from elekto import APP
+from elekto import APP, get_db_session
 from elekto.models import meta
 
 
@@ -52,5 +52,19 @@ def public_election(eid):
                              
 @APP.route('/health')
 def health_check():
-    status_code = F.Response(status=200)
-    return status_code
+    try:
+        session = get_db_session()
+        session.execute("SELECT 1")
+        response = {
+            "status": "healthy",
+            "database": "connected",
+            "error": ""
+        }
+        return F.jsonify(response), 200
+    except Exception as e:
+        response = {
+            "status": "unhealthy",
+            "database": "disconnected",
+            "error": str(e)
+        }
+        return F.jsonify(response), 500
