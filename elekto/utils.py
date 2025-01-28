@@ -31,6 +31,7 @@ def set_session(app):
     if str(F.request.path).find("static") == -1 and \
             constants.AUTH_STATE in F.session.keys() and \
             F.session[constants.AUTH_STATE] is not None:
+        
         # Authenticate with every request if the user's token correct or not
         token = F.session[constants.AUTH_STATE]
         user = SESSION.query(User).filter_by(token=token).first()

@@ -18,11 +18,15 @@ import flask as F
 from flask_wtf.csrf import CSRFProtect
 
 from elekto.models import sql
+from sqlalchemy.orm import scoped_session
+from werkzeug.local import LocalProxy
 
 APP = F.Flask(__name__)
 APP.config.from_object('config')
 csrf = CSRFProtect(APP)
 SESSION = sql.create_session(APP.config.get('DATABASE_URL'))  # database
+
+SESSION: scoped_session = LocalProxy(get_db_session)
 
 from elekto.models import meta  # noqa - imports SESSION from here
 from elekto import utils  # noqa - imports SESSION from here
