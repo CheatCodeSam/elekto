@@ -24,7 +24,11 @@ from werkzeug.local import LocalProxy
 APP = F.Flask(__name__)
 APP.config.from_object('config')
 csrf = CSRFProtect(APP)
-SESSION = sql.create_session(APP.config.get('DATABASE_URL'))  # database
+
+def get_db_session() -> scoped_session:
+    if 'db_session' not in F.g:
+        F.g.db_session = sql.create_session(APP.config.get('DATABASE_URL')) 
+    return F.g.db_session
 
 SESSION: scoped_session = LocalProxy(get_db_session)
 
@@ -49,9 +53,9 @@ def before_request():
 
 @APP.teardown_appcontext
 def destroy_session(exception=None):
-    # Remove the database session
-    SESSION.remove()
-
+    db = F.g.pop('db_session', None)
+    if db is not None:
+        db.remove()
 
 ####
 # Controllers
